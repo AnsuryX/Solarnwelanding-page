@@ -52,21 +52,26 @@ const WhatsAppModal = ({ isOpen, onClose, context }: { isOpen: boolean, onClose:
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
+          full_name: formData.name,
+          phone: formData.phone,
           source: 'whatsapp_modal',
           context: context || 'general',
           timestamp: new Date().toISOString()
         })
       });
 
-      // Redirect to WhatsApp
+      // Redirect to WhatsApp using a new tab to avoid iframe restrictions
       const defaultMsg = `Hi Solargear! My name is ${formData.name}. I'm interested in a solar solution.`;
       const contextMsg = context ? `Hi Solargear! My name is ${formData.name}. I'm interested in the ${context} package.` : defaultMsg;
       const message = encodeURIComponent(contextMsg);
-      window.location.href = `https://wa.me/${COMPANY_WHATSAPP}?text=${message}`;
+      const whatsappUrl = `https://wa.me/${COMPANY_WHATSAPP}?text=${message}`;
+      
+      // Use window.open with _blank to avoid "refused to connect" in iframe
+      window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+      onClose(); // Close modal after redirecting
     } catch (error) {
       console.error("Submission failed", error);
-      window.location.href = `https://wa.me/${COMPANY_WHATSAPP}`;
+      window.open(`https://wa.me/${COMPANY_WHATSAPP}`, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -524,11 +529,11 @@ const LeadForm = () => {
     
     const formData = new FormData(e.target as HTMLFormElement);
     const data = {
-      fullName: formData.get('fullName'),
+      full_name: formData.get('fullName'),
       phone: formData.get('phone'),
       email: formData.get('email'),
       location: formData.get('location'),
-      monthlyBill: formData.get('monthlyBill'),
+      monthly_bill: formData.get('monthlyBill'),
       source: 'quote_form_main',
       timestamp: new Date().toISOString()
     };
