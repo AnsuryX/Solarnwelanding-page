@@ -7,7 +7,9 @@ export interface SolarAIResponse {
 }
 
 export async function getSolarAIRecommendation(monthlyBill: string, location: string): Promise<SolarAIResponse> {
-  const response = await fetch("/api/estimate", {
+  const metaEnv = (import.meta as any).env;
+  const apiUrl = metaEnv.VITE_API_URL || "";
+  const response = await fetch(`${apiUrl}/api/estimate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -16,8 +18,14 @@ export async function getSolarAIRecommendation(monthlyBill: string, location: st
   });
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Server error: ${response.status}`);
+    let errorMessage = `Server error: ${response.status}`;
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.error || errorMessage;
+    } catch (e) {
+      // Not JSON
+    }
+    throw new Error(errorMessage);
   }
 
   return response.json();
