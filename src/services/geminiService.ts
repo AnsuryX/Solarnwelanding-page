@@ -18,7 +18,12 @@ export async function getSolarAIRecommendation(monthlyBill: string, location: st
     - Location: ${location}
 
     Provide a professional solar recommendation in JSON format.
-    Use Kenyan context (KPLC rates, Nairobi sunshine patterns).
+    CRITICAL: Account for regional solar irradiance in Kenya:
+    - Coast/North Eastern: Extreme sun (~6.5+ kWh/m2/day)
+    - Rift Valley/Western: High sun (~5.5-6.0 kWh/m2/day)
+    - Nairobi/Central: Moderate (~5.0-5.5 kWh/m2/day)
+    
+    Adjust "monthlySavings" and "paybackPeriod" based on the ${location} irradiance.
     
     The recommendedPackage should be one of our standard offerings:
     1. SolarStart™ Backup (5kWh Battery, 3.5kW Inverter) - for bills < 10k
@@ -29,7 +34,7 @@ export async function getSolarAIRecommendation(monthlyBill: string, location: st
   `;
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-2.0-flash",
     contents: prompt,
     config: {
       responseMimeType: "application/json",

@@ -27,7 +27,9 @@ import {
   Sparkles,
   TreeDeciduous,
   TrendingDown,
-  Clock
+  Clock,
+  ChevronDown,
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
@@ -158,15 +160,40 @@ const SolarAIEstimator = () => {
   const [bill, setBill] = useState('15000');
   const [location, setLocation] = useState('Nairobi');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SolarAIResponse | null>(null);
+
+  const kenyanRegions = [
+    "Nairobi", "Mombasa (Coast)", "Kisumu", "Eldoret", "Nakuru", 
+    "Garissa (North Eastern)", "Mandera", "Lodwar (Turkana)", 
+    "Nyeri", "Machakos", "Voi", "Narok"
+  ];
 
   const handleEstimate = async () => {
     setLoading(true);
+    setError(null);
     try {
       const recommendation = await getSolarAIRecommendation(bill, location);
+      if (!recommendation || Object.keys(recommendation).length === 0) {
+        throw new Error("Invalid response from AI");
+      }
       setResult(recommendation);
-    } catch (error) {
-      console.error("AI Estimation failed", error);
+      
+      // Auto-submit to Formspree for lead generation if they've given a bill
+      fetch(FORMSPREE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source: 'ai_estimator_usage',
+          bill,
+          location,
+          timestamp: new Date().toISOString()
+        })
+      }).catch(e => console.warn("Background lead sync failed", e));
+
+    } catch (err: any) {
+      console.error("AI Estimation failed", err);
+      setError("Energy modeling is currently busy. Please try again in 30 seconds.");
     } finally {
       setLoading(false);
     }
@@ -184,10 +211,10 @@ const SolarAIEstimator = () => {
               <span>Proprietary AI Engine</span>
             </div>
             <h2 className="text-4xl md:text-5xl font-serif font-bold mb-6 leading-tight">
-              Get an instant <span className="text-amber-500 italic">Expert Audit</span> powered by Gemini
+              Decode Your Energy Future with <span className="text-amber-500 italic">Neural Modeling</span>
             </h2>
             <p className="text-stone-400 text-lg mb-10 leading-relaxed max-w-xl">
-              Our AI analyzes your consumption patterns against Nairobi's solar irradiance data to 
+              Our AI analyzes your consumption patterns against regional solar irradiance data across Kenya to 
               deliver a customized energy roadmap in seconds.
             </p>
 
@@ -207,21 +234,52 @@ const SolarAIEstimator = () => {
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] uppercase font-bold text-stone-500 tracking-widest">Your Location</label>
-                <input 
-                  type="text" 
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  className="w-full px-6 py-5 bg-white/5 border border-white/10 rounded-2xl focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-all text-xl" 
-                  placeholder="e.g. Karen, Nairobi"
-                />
+                <div className="relative">
+                  <select 
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    className="w-full px-6 py-5 bg-white/5 border border-white/10 rounded-2xl focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-all text-xl appearance-none"
+                  >
+                    {kenyanRegions.map(reg => (
+                      <option key={reg} value={reg} className="bg-deep-green text-white">
+                        {reg}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <ChevronDown className="h-5 w-5 text-stone-500" />
+                  </div>
+                </div>
               </div>
+
+              {error && (
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  {error}
+                </div>
+              )}
+
               <button 
                 onClick={handleEstimate}
                 disabled={loading}
                 className="w-full py-6 bg-amber-500 text-deep-green font-black rounded-2xl shadow-xl shadow-amber-900/40 hover:bg-amber-400 hover:-translate-y-0.5 transition-all text-xl uppercase tracking-widest flex items-center justify-center gap-3 disabled:opacity-50"
               >
-                {loading ? "Analyzing..." : "Analyze My Savings"}
-                <ArrowRight className="h-6 w-6" />
+                {loading ? (
+                  <>
+                    <motion.div 
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    >
+                      <Sparkles className="h-6 w-6" />
+                    </motion.div>
+                    <span>Modeling...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Analyze My Savings</span>
+                    <ArrowRight className="h-6 w-6" />
+                  </>
+                )}
               </button>
             </div>
           </div>
