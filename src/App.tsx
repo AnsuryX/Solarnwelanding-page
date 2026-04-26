@@ -211,7 +211,7 @@ const SolarAIEstimator = () => {
               <span>Proprietary AI Engine</span>
             </div>
             <h2 className="text-4xl md:text-5xl font-serif font-bold mb-6 leading-tight">
-              Decode Your Energy Future with <span className="text-amber-500 italic">Neural Modeling</span>
+              Architect Your <span className="text-amber-500 italic">Energy Independence</span> with Neural-Engine Precision
             </h2>
             <p className="text-stone-400 text-lg mb-10 leading-relaxed max-w-xl">
               Our AI analyzes your consumption patterns against regional solar irradiance data across Kenya to 

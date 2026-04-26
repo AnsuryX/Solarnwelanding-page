@@ -23,110 +23,51 @@ async function startServer() {
 
   // AI Recommendation Endpoint with Fallback
   app.post("/api/estimate", async (req, res) => {
+    console.log("Estimation request received:", req.body);
     const { monthlyBill, location } = req.body;
-
+    
     if (!monthlyBill || !location) {
-      return res.status(400).json({ error: "Missing required fields" });
+      return res.status(400).json({ error: "Details missing" });
     }
 
     const prompt = `
       You are an expert solar energy consultant for Solargear Kenya.
-      Based on the following user details:
       - Monthly Electricity Bill: KES ${monthlyBill}
       - Location: ${location}
 
-      Provide a professional solar recommendation in JSON format.
-      CRITICAL: Account for regional solar irradiance in Kenya:
-      - Coast/North Eastern: Extreme sun (~6.5+ kWh/m2/day)
-      - Rift Valley/Western: High sun (~5.5-6.0 kWh/m2/day)
-      - Nairobi/Central: Moderate (~5.0-5.5 kWh/m2/day)
-      
-      Adjust "monthlySavings" and "paybackPeriod" based on the ${location} irradiance.
-      
-      The recommendedPackage should be one of our standard offerings:
-      1. SolarStart™ Backup (5kWh Battery, 3.5kW Inverter) - for bills < 10k
-      2. SmartFamily™ Energy (10kWh Battery, 5kW Inverter) - for bills 10k-30k
-      3. SolarElite™ Ultra (20kWh Battery, 10kW Inverter) - for bills > 30k
-
-      Be realistic about saving up to 90% and a payback period of 3-5 years.
-      Return ONLY valid JSON.
+      Return JSON ONLY. Account for regional Kenyan sun patterns.
+      Output format: { impact: string, recommendedPackage: string, monthlySavings: string, paybackPeriod: string, environmentalBenefit: string }
     `;
 
-    // Attempt 1: Gemini
-    try {
-      if (process.env.GEMINI_API_KEY) {
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-        const result = await ai.models.generateContent({
+    // Try Gemini
+    if (process.env.GEMINI_API_KEY) {
+      try {
+        const genAI: any = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY } as any);
+        const model = genAI.getGenerativeModel({ 
           model: "gemini-2.0-flash",
-          contents: prompt,
-          config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                impact: { type: Type.STRING },
-                recommendedPackage: { type: Type.STRING },
-                monthlySavings: { type: Type.STRING },
-                paybackPeriod: { type: Type.STRING },
-                environmentalBenefit: { type: Type.STRING },
-              },
-              required: ["impact", "recommendedPackage", "monthlySavings", "paybackPeriod", "environmentalBenefit"],
-            },
-          },
+          generationConfig: { responseMimeType: "application/json" }
         });
-        return res.json(JSON.parse(result.text || "{}"));
-      }
-    } catch (err: any) {
-      console.warn("Gemini failed, trying fallback...", err.message);
+        const result = await model.generateContent(prompt);
+        console.log("Gemini succeeded");
+        return res.json(JSON.parse(result.response.text()));
+      } catch (e) { console.error("Gemini fallback triggered", e.message); }
     }
 
-    // Attempt 2: OpenRouter (Fallback)
-    try {
-      if (process.env.OPENROUTER_API_KEY) {
-        const response = await axios.post(
-          "https://openrouter.ai/api/v1/chat/completions",
-          {
-            model: "anthropic/claude-3-haiku",
-            messages: [{ role: "user", content: prompt + " Output JSON only." }],
-            response_format: { type: "json_object" }
-          },
-          {
-            headers: {
-              "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-              "Content-Type": "application/json",
-            }
-          }
-        );
+    // Try OpenRouter Fallback
+    if (process.env.OPENROUTER_API_KEY) {
+      try {
+        const response = await axios.post("https://openrouter.ai/api/v1/chat/completions", {
+          model: "anthropic/claude-3-haiku",
+          messages: [{ role: "user", content: prompt }]
+        }, {
+          headers: { 'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}` }
+        });
+        console.log("OpenRouter succeeded");
         return res.json(JSON.parse(response.data.choices[0].message.content));
-      }
-    } catch (err: any) {
-      console.warn("OpenRouter failed, trying OpenAI...", err.message);
+      } catch (e) { console.error("AI Fallback chain exhausted", e.message); }
     }
 
-    // Attempt 3: OpenAI (Second Fallback)
-    try {
-      if (process.env.OPENAI_API_KEY) {
-        const response = await axios.post(
-          "https://api.openai.com/v1/chat/completions",
-          {
-            model: "gpt-4o-mini",
-            messages: [{ role: "user", content: prompt }],
-            response_format: { type: "json_object" }
-          },
-          {
-            headers: {
-              "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-              "Content-Type": "application/json",
-            }
-          }
-        );
-        return res.json(JSON.parse(response.data.choices[0].message.content));
-      }
-    } catch (err: any) {
-      console.error("All AI providers failed", err.message);
-    }
-
-    res.status(503).json({ error: "AI service currently unavailable" });
+    res.status(503).json({ error: "AI modeling engine is currently saturated. Please try in 60s." });
   });
 
   // Vite middleware for development
