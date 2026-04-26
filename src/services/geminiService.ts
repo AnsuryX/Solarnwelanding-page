@@ -8,7 +8,13 @@ export interface SolarAIResponse {
 
 export async function getSolarAIRecommendation(monthlyBill: string, location: string): Promise<SolarAIResponse> {
   const metaEnv = (import.meta as any).env;
-  const apiUrl = metaEnv.VITE_API_URL || "";
+  let apiUrl = metaEnv.VITE_API_URL || "";
+  
+  // Clean up potential trailing slash to prevent double-slashes
+  if (apiUrl.endsWith('/')) {
+    apiUrl = apiUrl.slice(0, -1);
+  }
+
   const response = await fetch(`${apiUrl}/api/estimate`, {
     method: "POST",
     headers: {

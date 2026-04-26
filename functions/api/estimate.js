@@ -1,5 +1,22 @@
+export async function onRequestOptions() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Max-Age": "86400",
+    },
+  });
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
+  
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Content-Type": "application/json",
+  };
   
   try {
     const { monthlyBill, location } = await request.json();
@@ -10,21 +27,8 @@ export async function onRequestPost(context) {
       - Monthly Electricity Bill: KES ${monthlyBill}
       - Location: ${location}
 
-      Provide a professional solar recommendation in JSON format.
-      CRITICAL: Account for regional solar irradiance in Kenya:
-      - Coast/North Eastern: Extreme sun (~6.5+ kWh/m2/day)
-      - Rift Valley/Western: High sun (~5.5-6.0 kWh/m2/day)
-      - Nairobi/Central: Moderate (~5.0-5.5 kWh/m2/day)
-      
-      Adjust "monthlySavings" and "paybackPeriod" based on the ${location} irradiance.
-      
-      The recommendedPackage should be one of our standard offerings:
-      1. SolarStart™ Backup (5kWh Battery, 3.5kW Inverter) - for bills < 10k
-      2. SmartFamily™ Energy (10kWh Battery, 5kW Inverter) - for bills 10k-30k
-      3. SolarElite™ Ultra (20kWh Battery, 10kW Inverter) - for bills > 30k
-
-      Be realistic about saving up to 90% and a payback period of 3-5 years.
-      Return ONLY valid JSON.
+      Return JSON ONLY. Account for regional Kenyan sun patterns.
+      Output format: { impact: string, recommendedPackage: string, monthlySavings: string, paybackPeriod: string, environmentalBenefit: string }
     `;
 
     // Attempt 1: Gemini (Native via Fetch for Workers)
@@ -39,9 +43,14 @@ export async function onRequestPost(context) {
           })
         });
         const data = await response.json();
-        const text = data.candidates[0].content.parts[0].text;
-        return new Response(text, { headers: { 'Content-Type': 'application/json' } });
-      } catch (e) { console.error("Gemini failed"); }
+
+        if (data.candidates && data.candidates[0].content.parts[0].text) {
+          const text = data.candidates[0].content.parts[0].text;
+          return new Response(text, { headers: corsHeaders });
+        }
+      } catch (e) { 
+        console.error("Gemini failed", e); 
+      }
     }
 
     // Attempt 2: Fallback (OpenRouter)
@@ -55,17 +64,27 @@ export async function onRequestPost(context) {
           },
           body: JSON.stringify({
             model: "anthropic/claude-3-haiku",
-            messages: [{ role: "user", content: prompt + " Output JSON only." }]
+            messages: [{ role: "user", content: prompt }]
           })
         });
         const data = await response.json();
-        return new Response(data.choices[0].message.content, { headers: { 'Content-Type': 'application/json' } });
-      } catch (e) { console.error("OpenRouter failed"); }
+        if (data.choices && data.choices[0].message.content) {
+          return new Response(data.choices[0].message.content, { headers: corsHeaders });
+        }
+      } catch (e) { 
+        console.error("OpenRouter failed", e); 
+      }
     }
 
-    return new Response(JSON.stringify({ error: "AI Service Unavailable" }), { status: 503 });
+    return new Response(JSON.stringify({ error: "AI Service Saturated" }), { 
+      status: 503, 
+      headers: corsHeaders 
+    });
 
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: err.message }), { 
+      status: 500, 
+      headers: corsHeaders 
+    });
   }
 }
