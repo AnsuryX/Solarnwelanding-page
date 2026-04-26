@@ -23,18 +23,23 @@ import {
   Search,
   Wrench,
   Users,
-  X
+  X,
+  Sparkles,
+  TreeDeciduous,
+  TrendingDown,
+  Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { getSolarAIRecommendation, type SolarAIResponse } from './services/geminiService';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 // --- Constants ---
-const MAKE_WEBHOOK_URL = "https://hook.eu1.make.com/ksdmojhex3hf0fkkrf4jkbishf0uwxns";
+const FORMSPREE_URL = "https://formspree.io/f/xnjlrlyq";
 const COMPANY_WHATSAPP = "254141153031";
 
 // --- Components ---
@@ -48,7 +53,7 @@ const WhatsAppModal = ({ isOpen, onClose, context }: { isOpen: boolean, onClose:
     setLoading(true);
 
     try {
-      await fetch(MAKE_WEBHOOK_URL, {
+      await fetch(FORMSPREE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -149,6 +154,178 @@ const WhatsAppModal = ({ isOpen, onClose, context }: { isOpen: boolean, onClose:
   );
 };
 
+const SolarAIEstimator = () => {
+  const [bill, setBill] = useState('15000');
+  const [location, setLocation] = useState('Nairobi');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<SolarAIResponse | null>(null);
+
+  const handleEstimate = async () => {
+    setLoading(true);
+    try {
+      const recommendation = await getSolarAIRecommendation(bill, location);
+      setResult(recommendation);
+    } catch (error) {
+      console.error("AI Estimation failed", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <section id="ai-engine" className="py-24 bg-deep-green text-white relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-1/3 h-full bg-gradient-to-l from-white/5 to-transparent pointer-events-none" />
+      
+      <div className="max-w-7xl mx-auto px-6 relative z-10">
+        <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <div>
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-full text-amber-500 text-sm font-bold mb-6">
+              <Sparkles className="h-4 w-4" />
+              <span>Proprietary AI Engine</span>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-serif font-bold mb-6 leading-tight">
+              Get an instant <span className="text-amber-500 italic">Expert Audit</span> powered by Gemini
+            </h2>
+            <p className="text-stone-400 text-lg mb-10 leading-relaxed max-w-xl">
+              Our AI analyzes your consumption patterns against Nairobi's solar irradiance data to 
+              deliver a customized energy roadmap in seconds.
+            </p>
+
+            <div className="space-y-6 max-w-md">
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase font-bold text-stone-500 tracking-widest">Average Monthly Bill (KES)</label>
+                <div className="relative">
+                  <input 
+                    type="number" 
+                    value={bill}
+                    onChange={(e) => setBill(e.target.value)}
+                    className="w-full px-6 py-5 bg-white/5 border border-white/10 rounded-2xl focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-all text-2xl font-bold font-mono" 
+                    placeholder="15000"
+                  />
+                  <div className="absolute right-6 top-1/2 -translate-y-1/2 text-stone-500 font-bold">KES</div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase font-bold text-stone-500 tracking-widest">Your Location</label>
+                <input 
+                  type="text" 
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="w-full px-6 py-5 bg-white/5 border border-white/10 rounded-2xl focus:ring-2 focus:ring-amber-500/20 focus:outline-none transition-all text-xl" 
+                  placeholder="e.g. Karen, Nairobi"
+                />
+              </div>
+              <button 
+                onClick={handleEstimate}
+                disabled={loading}
+                className="w-full py-6 bg-amber-500 text-deep-green font-black rounded-2xl shadow-xl shadow-amber-900/40 hover:bg-amber-400 hover:-translate-y-0.5 transition-all text-xl uppercase tracking-widest flex items-center justify-center gap-3 disabled:opacity-50"
+              >
+                {loading ? "Analyzing..." : "Analyze My Savings"}
+                <ArrowRight className="h-6 w-6" />
+              </button>
+            </div>
+          </div>
+
+          <div className="relative">
+            <AnimatePresence mode="wait">
+              {result ? (
+                <motion.div 
+                  key="result"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="bg-white rounded-[48px] p-8 md:p-12 text-deep-green shadow-3xl relative overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 p-8">
+                    <CheckCircle2 className="h-12 w-12 text-emerald-500 opacity-20" />
+                  </div>
+                  
+                  <div className="mb-10">
+                    <h3 className="text-stone-400 text-xs font-bold uppercase tracking-[0.2em] mb-2">Recommended Solution</h3>
+                    <div className="text-3xl font-serif font-bold text-deep-green">{result.recommendedPackage}</div>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-8 mb-10">
+                    <div className="p-6 bg-stone-50 rounded-3xl border border-stone-100 transition-hover hover:border-amber-500/30">
+                      <TrendingDown className="h-6 w-6 text-emerald-500 mb-3" />
+                      <div className="text-xs font-bold text-stone-400 uppercase mb-1">Monthly Savings</div>
+                      <div className="text-2xl font-bold font-mono text-emerald-600">KES {result.monthlySavings}</div>
+                    </div>
+                    <div className="p-6 bg-stone-50 rounded-3xl border border-stone-100 transition-hover hover:border-amber-500/30">
+                      <Clock className="h-6 w-6 text-amber-500 mb-3" />
+                      <div className="text-xs font-bold text-stone-400 uppercase mb-1">Payback Period</div>
+                      <div className="text-2xl font-bold text-deep-green">{result.paybackPeriod}</div>
+                    </div>
+                  </div>
+
+                  <div className="p-8 bg-emerald-50 rounded-[32px] border border-emerald-100 mb-10">
+                    <div className="flex items-start gap-4">
+                      <div className="h-12 w-12 bg-white rounded-2xl flex items-center justify-center text-emerald-600 shadow-sm shrink-0">
+                        <TreeDeciduous className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-emerald-700/60 uppercase mb-1">Environmental Impact</div>
+                        <p className="text-emerald-900 font-medium leading-relaxed">
+                          {result.environmentalBenefit}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-stone-500 text-sm leading-relaxed italic mb-8 border-l-2 border-amber-500 pl-4">
+                    "{result.impact}"
+                  </div>
+
+                  <button 
+                    onClick={() => setResult(null)}
+                    className="w-full py-4 text-stone-400 font-bold hover:text-deep-green transition-colors text-sm uppercase tracking-widest"
+                  >
+                    Reset Calculation
+                  </button>
+                </motion.div>
+              ) : (
+                <motion.div 
+                  key="empty"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="aspect-square bg-white/5 border-2 border-dashed border-white/10 rounded-[48px] flex flex-col items-center justify-center p-12 text-center"
+                >
+                  <div className="h-24 w-24 bg-white/5 rounded-[32px] flex items-center justify-center mb-8">
+                    <Calculator className="h-12 w-12 text-stone-500" />
+                  </div>
+                  <h4 className="text-xl font-bold mb-4 text-stone-300">Ready to Calculate Your Future?</h4>
+                  <p className="text-stone-500 leading-relaxed">
+                    Enter your electricity bill above to unlock a bespoke energy efficiency report for your Nairobi home.
+                  </p>
+                  
+                  <div className="mt-8 flex gap-2">
+                    {[1,2,3].map(i => (
+                      <div key={i} className="h-1.5 w-8 bg-white/5 rounded-full overflow-hidden">
+                        <motion.div 
+                          animate={{ x: [-32, 32] }}
+                          transition={{ duration: 2, repeat: Infinity, delay: i * 0.2 }}
+                          className="h-full w-full bg-amber-500/20"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Floating Badges */}
+            <div className="absolute -top-6 -right-6 h-32 w-32 bg-amber-500 rounded-full flex items-center justify-center text-deep-green text-center p-4 border-8 border-deep-green rotate-12 shadow-2xl z-20 hidden md:flex">
+              <div className="font-black text-xs uppercase leading-tight tracking-tighter">
+                90%<br />Lower Bills
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 const Logo = ({ className }: { className?: string }) => (
   <div className={cn("flex items-center gap-2 font-bold text-2xl tracking-tighter", className)}>
     <div className="relative flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500 text-white shadow-lg shadow-amber-500/20">
@@ -207,6 +384,10 @@ const Navbar = () => {
         <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-deep-green">
           <a href="#why-solar" className="hover:text-amber-600 transition-colors">Why Solar</a>
           <a href="#packages" className="hover:text-amber-600 transition-colors">Packages</a>
+          <a href="#ai-engine" className="flex items-center gap-1 hover:text-amber-600 transition-colors">
+            <Sparkles className="h-4 w-4 text-amber-500" />
+            AI Engine
+          </a>
           <a href="#journey" className="hover:text-amber-600 transition-colors">Your Journey</a>
           <a href="#contact" className="px-5 py-2.5 bg-deep-green text-white rounded-full hover:bg-deep-green-dark transition-all shadow-md hover:shadow-lg flex items-center gap-2">
             <MessageCircle className="w-4 h-4" />
@@ -257,6 +438,13 @@ const Hero = ({ onOpenWhatsApp }: { onOpenWhatsApp: () => void }) => (
                 <MessageCircle className="h-5 w-5 text-emerald-500" />
                 WhatsApp Us
               </button>
+              <a 
+                href="#ai-engine"
+                className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-deep-green text-white font-bold rounded-full hover:bg-stone-800 transition-all shadow-sm group"
+              >
+                <Sparkles className="h-5 w-5 text-amber-500 group-hover:animate-pulse" />
+                Try AI Engine
+              </a>
             </div>
             
             <div className="mt-12 flex items-center gap-6">
@@ -288,7 +476,7 @@ const Hero = ({ onOpenWhatsApp }: { onOpenWhatsApp: () => void }) => (
         >
           <div className="relative aspect-[4/5] rounded-3xl overflow-hidden shadow-2xl border-8 border-white">
             <img 
-              src="https://images.unsplash.com/photo-1509391366360-fe5bb65858cf?auto=format&fit=crop&q=80&w=800" 
+              src="https://asset.solargear.co.ke/Whisk_df91f1544e6756881164c8127c6e9b2bdr.jpeg" 
               alt="Solar panels on a beautiful home" 
               className="object-cover w-full h-full"
             />
@@ -539,7 +727,7 @@ const LeadForm = () => {
     };
 
     try {
-      await fetch(MAKE_WEBHOOK_URL, {
+      await fetch(FORMSPREE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -769,6 +957,8 @@ export default function App() {
       <main>
         <Hero onOpenWhatsApp={() => openWhatsApp()} />
         
+        <SolarAIEstimator />
+
         {/* Why Solar Section */}
         <section id="why-solar" className="py-24 bg-white relative overflow-hidden">
           <div className="absolute top-0 left-0 w-64 h-64 bg-stone-50 blur-3xl rounded-full -translate-x-1/2 -translate-y-1/2" />
