@@ -10,26 +10,29 @@ export async function getSolarAIRecommendation(monthlyBill: string, location: st
   const metaEnv = (import.meta as any).env;
   let apiUrl = metaEnv.VITE_API_URL || "";
   
-  // Clean up potential trailing slash to prevent double-slashes
-  if (apiUrl.endsWith('/')) {
+  if (apiUrl && apiUrl.endsWith('/')) {
     apiUrl = apiUrl.slice(0, -1);
   }
+
+  // Use relative path if no VITE_API_URL is provided, which is safer on Cloudflare Pages
+  const endpoint = apiUrl ? `${apiUrl}/api/estimate` : '/api/estimate';
 
   const maxRetries = 3;
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      const response = await fetch(`${apiUrl}/api/estimate`, {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Accept": "application/json"
         },
         body: JSON.stringify({ monthlyBill, location }),
       });
 
       if (response.ok) {
-        return response.json();
+        return await response.json();
       }
 
       const errorText = await response.text();
@@ -38,15 +41,13 @@ export async function getSolarAIRecommendation(monthlyBill: string, location: st
         const errorData = JSON.parse(errorText);
         errorMessage = errorData.error || errorMessage;
       } catch (e) {
-        // Not JSON
+        if (errorText.length < 200) errorMessage = errorText;
       }
 
-      // If it's a 503 or 429, we should retry. Other errors (like 400) usually won't go away with a retry.
-      if (response.status === 503 || response.status === 429) {
-        console.warn(`Attempt ${attempt + 1} failed: ${errorMessage}. Retrying...`);
+      if ([503, 429, 500].includes(response.status)) {
+        console.warn(`[AI Engine] Attempt ${attempt + 1} failed: ${errorMessage}. Retrying...`);
         lastError = new Error(errorMessage);
-        // Exponential backoff: 1s, 2s, 4s...
-        await new Promise(res => setTimeout(res, Math.pow(2, attempt) * 1000));
+        await new Promise(res => setTimeout(res, Math.pow(2, attempt) * 1500));
         continue;
       }
 
@@ -55,10 +56,9 @@ export async function getSolarAIRecommendation(monthlyBill: string, location: st
     } catch (err: any) {
       lastError = err;
       if (attempt === maxRetries - 1) break;
-      // For network errors, also retry
-      await new Promise(res => setTimeout(res, Math.pow(2, attempt) * 1000));
+      await new Promise(res => setTimeout(res, Math.pow(2, attempt) * 1500));
     }
   }
 
-  throw lastError || new Error("Failed to reach the energy modeling engine after several attempts.");
+  throw lastError || new Error("Energy modeling engine is unreachable.");
 }

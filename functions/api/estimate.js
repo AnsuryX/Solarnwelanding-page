@@ -76,8 +76,34 @@ export async function onRequestPost(context) {
             'X-Title': 'Solargear AI'
           },
           body: JSON.stringify({
-            model: "google/gemini-2.0-flash-001", // Use Gemini via OpenRouter as 1st fallback
-            messages: [{ role: "user", content: prompt + " \nIMPORTANT: Output strictly valid JSON without markdown formatting." }],
+            model: "google/gemini-2.0-flash-001",
+            messages: [{ role: "user", content: prompt + " \nIMPORTANT: Output strictly valid JSON." }],
+            response_format: { type: "json_object" }
+          })
+        });
+        const data = await response.json();
+        if (data.choices && data.choices[0].message.content) {
+          let text = data.choices[0].message.content;
+          text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+          return new Response(text, { headers: corsHeaders });
+        }
+      } catch (e) { 
+        console.error("OpenRouter fallback failed:", e.message); 
+      }
+    }
+
+    // Attempt 3: Fallback (OpenAI)
+    if (env.OPENAI_API_KEY) {
+      try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: prompt + " Output JSON only." }],
             response_format: { type: "json_object" }
           })
         });
@@ -85,14 +111,21 @@ export async function onRequestPost(context) {
         if (data.choices && data.choices[0].message.content) {
           return new Response(data.choices[0].message.content, { headers: corsHeaders });
         }
-      } catch (e) { 
-        console.error("OpenRouter fallback failed:", e.message); 
+      } catch (e) {
+        console.error("OpenAI fallback failed:", e.message);
       }
     }
 
-    let failureReason = "AI modeling engine is currently busy (No active keys or service error).";
-    if (!env.GEMINI_API_KEY && !env.OPENROUTER_API_KEY) {
-      failureReason = "Configuration Error: AI API keys (GEMINI_API_KEY/OPENROUTER_API_KEY) are not set in Cloudflare dashboard.";
+    let failureReason = "AI Modeling Engine Saturation: All provider attempts (Gemini, OpenRouter, OpenAI) failed or returned invalid data.";
+    
+    // Check if keys are actually present in the env object
+    const missingKeys = [];
+    if (!env.GEMINI_API_KEY) missingKeys.push("GEMINI_API_KEY");
+    if (!env.OPENROUTER_API_KEY) missingKeys.push("OPENROUTER_API_KEY");
+    if (!env.OPENAI_API_KEY) missingKeys.push("OPENAI_API_KEY");
+
+    if (missingKeys.length > 0) {
+      failureReason = `Configuration Issue: The following keys are missing from the Cloudflare environment: ${missingKeys.join(", ")}. Please ensure they are added in Settings -> Variables -> Environment Variables (Production & Preview).`;
     }
 
     return new Response(JSON.stringify({ error: failureReason }), { 

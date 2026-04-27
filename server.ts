@@ -4,9 +4,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { GoogleGenAI, Type } from "@google/genai";
 import axios from "axios";
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 // Helper for __dirname in ESM
 const __filename = fileURLToPath(import.meta.url);
